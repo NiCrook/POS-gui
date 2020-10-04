@@ -1,129 +1,179 @@
 import tkinter as tk
 from tkinter import IntVar, StringVar
+import os
 
 
-class POSGui:
+def user_lst_directory():
+    if not os.path.exists("user_list.txt"):
+        print("file does not exist.\nCreating new file...")
+        file = open("user_list.txt", "w")
+        file.write("username:password,")
+        file.close()
+    else:
+        print("File exists.")
 
-    CURRENCY_LIST = ['$100', '$50', '$20', '$10', '$5', '$1', '$0.25', '$0.10', '$0.05', '$0.01']
 
-    def __init__(self, parent):
-        self.parent = parent
-        self.frame = tk.Frame()
-        self.frame.grid()
+class ContainerFrame(tk.Tk):
+    def __init__(self, *args, **kwargs):
+        tk.Tk.__init__(self, *args, **kwargs)
 
-        # VARIABLES
-        self.user_name = None
-        self.register_incorrect = 0
-        self.transaction_total = 0
-        self.cash_due = 0
+        container = tk.Frame(self)
+        self.title("Point-of-Sales Demo v2.01")
+        container.pack(side="top", fill="both", expand=True)
+        container.grid_rowconfigure(0, weight=1)
+        container.grid_columnconfigure(0, weight=1)
 
-        self.user_name_text = StringVar()
-        self.register_incorrect_text = IntVar()
-        self.transaction_total_text = IntVar()
-        self.cash_due_text = IntVar()
+        frame_list = [StartFrame, LoginFrame, MenuFrame]
+        self.frames = {}
 
-        self.user_name_text.set(self.user_name)
-        self.register_incorrect_text.set(self.register_incorrect)
-        self.transaction_total_text.set(self.transaction_total)
-        self.cash_due_text.set(self.cash_due)
+        for F in frame_list:
+            page_name = F.__name__
+            frame = F(parent=container, controller=self)
+            self.frames[page_name] = frame
+            frame.grid(row=0, column=0, sticky="nsew")
 
-        # WIDGETS
-        for cur in POSGui.CURRENCY_LIST:
-            cur = IntVar()
-            self.currency_labels = {
-                cur: tk.Label(self.frame, text=cur)
-            }
-            self.currency_buttons = {
-                cur: tk.Button(self.frame, text=cur)
-            }
-            self.currency_entries = {
-                cur: tk.Entry(self.frame)
-            }
+        self.show_frame("StartFrame")
 
-        self.labels = {
-            'program_name_label': tk.Label(self.frame, text='Cash Register System v1.0'),
-            'welcome_label': tk.Label(self.frame, text='Welcome!'),
-            'username_label': tk.Label(self.frame, text='Username:'),
-            'password_label': tk.Label(self.frame, text='Password:'),
-            're_password_label': tk.Label(self.frame, text='Re-enter Password:'),
-            'wrong_user/pass_label': tk.Label(self.frame, text='You have entered a wrong username/password. Try again'),
-            'hello_user_label': tk.Label(self.frame, text='Hello! Select an item below.'),
-            'admin_label': tk.Label(self.frame, text='Admin Screen'),
-            'pos_label': tk.Label(self.frame, text='Point Of Sales'),
-            'opening_register_label': tk.Label(self.frame, text='Opening register count:'),
-            'opening_currency_label': tk.Label(self.frame, text='Opening currency count:'),
-            'closing_register_label': tk.Label(self.frame, text='Closing register count:'),
-            'closing_currency_label': tk.Label(self.frame, text='Closing currency count:'),
-            'register_wrong_label': tk.Label(self.frame, text='Your register count is off...'),
-            'register_wrong_amount_label': tk.Label(self.frame, textvariable=self.register_incorrect_text),
-            'enter_UPC_label': tk.Label(self.frame, text='Enter UPC:'),
-            'count_label': tk.Label(self.frame, text='Count:'),
-            'total_label': tk.Label(self.frame, text='Total:'),
-            'cash_received_label': tk.Label(self.frame, text='Cash received:'),
-            'cash_due_label': tk.Label(self.frame, text='Cash due:'),
-            'current_register_count_label': tk.Label(self.frame, text='Register count:')
+    def show_frame(self, page_name):
+        for frame in self.frames.values():
+            frame.grid_remove()
+            frame = self.frames[page_name]
+            frame.grid()
+
+    # def create_admin_frame(self):
+    #     self.frames["AdminFrame"] = AdminFrame(parent=self.container, controller=self)
+    #     self.frames["AdminFrame"].grid(row=0, column=0, sticky="nsew")
+
+
+class StartFrame(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+
+        app_name_label = tk.Label(self, text="Cash Register System v2.01")
+        start_button = tk.Button(self, text="Start", command=self.start_button_push)
+
+        app_name_label.grid(row=1, column=0, columnspan=3)
+        start_button.grid(row=2, column=1)
+
+    def start_button_push(self):
+        self.controller.show_frame("LoginFrame")
+
+
+class LoginFrame(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+
+        user_list = open("user_list.txt", "r")
+        users = user_list.readlines()
+        self.user_dict = {}
+        for line in users:
+            delimer = str(":")
+            delimer_index = line.find(delimer)
+            username = line[0:delimer_index]
+            password = line[(delimer_index + 1):-1]
+            self.user_dict[username] = password
+
+        self.login_labels = {
+            "login label": tk.Label(self, text="Login"),
+            "username label": tk.Label(self, text="Username:"),
+            "password label": tk.Label(self, text="Password:"),
+            'wrong_user/pass_label': tk.Label(self, text='You have entered a wrong username/password. Try again')
         }
 
-        self.buttons = {
-            'start_button': tk.Button(self.frame, text='Start', command=self.welcome_button_push),
-            # 'login_button': tk.Button(self.frame, text='login', command=self.login_button_push),
-            # 'admin_button': tk.Button(self.frame, text='Admin', command=pass),
-            # 'POS_button': tk.Button(self.frame, text='POS', command=pass),
-            # 'admin_user_list_button': tk.Button(self.frame, text='User List', command=pass),
-            # 'remove_user_button': tk.Button(self.frame, text='Remove User', command=pass),
-            # 'admin_add_user_button': tk.Button(self.frame, text='Add User', command=pass),
-            # 'create_user_button': tk.Button(self.frame, text='Create User', command=pass),
-            # 'admin_change_password_button': tk.Button(self.frame, text='Change Pass', command=pass),
-            # 'change_password_button': tk.Button(self.frame, text='Change Pass', command=pass),
-            # 'start_day_button': tk.Button(self.frame, text='Start of Day', command=pass),
-            # 'pos_new_sale_button': tk.Button(self.frame, text='New Sale', command=pass),
-            # 'today_sales_button': tk.Button(self.frame, text="Today's Sales", command=pass),
-            # 'add_drop_cash_button': tk.Button(self.frame, text='Add/Drop Cash', command=pass),
-            # 'end_day_button': tk.Button(self.frame, text='End of Day', command=pass),
-            # 'recount_button': tk.Button(self.frame, text='Recount', command=pass),
-            # 'accept_count_button': tk.Button(self.frame, text='Accept', command=pass),
-            # 'add_product_button': tk.Button(self.frame, text='Add', command=pass),
-            # 'remove_product_button': tk.Button(self.frame, text='Remove', command=pass),
-            # 'confirm_transaction_button': tk.Button(self.frame, text='Confirm', command=pass),
-            # 'sale_new_sale_button': tk.Button(self.frame, text='New Sale', command=pass),
-            # 'add_cash_button': tk.Button(self.frame, text='Add', command=pass),
-            # 'drop_cash_button': tk.Button(self.frame, text='Drop', command=pass),
-            # 'return_frame_button': tk.Button(self.frame, text='Return', command=pass)
+        self.login_entries = {
+            'username entry': tk.Entry(self),
+            'password entry': tk.Entry(self, show='*')
         }
 
-        self.entries = {
-            'username_entry': tk.Entry(self.frame),
-            'password_entry': tk.Entry(self.frame, show='*'),
-            're_password_entry': tk.Entry(self.frame, show='*'),
-            'open_reg_count_entry': tk.Entry(self.frame),
-            'enter_upc_entry': tk.Entry(self.frame),
-            'upc_count_entry': tk.Entry(self.frame),
-            'cash_received_entry': tk.Entry(self.frame)
+        login_button = tk.Button(self, text="Login", command=self.login_push)
+
+        self.login_labels["login label"].grid(row=1, column=0)
+        self.login_labels["username label"].grid(row=2, column=0)
+        self.login_entries["username entry"].grid(row=2, column=1)
+        self.login_labels["password label"].grid(row=3, column=0)
+        self.login_entries["password entry"].grid(row=3, column=1)
+        login_button.grid(row=4, column=1)
+
+    def login_push(self):
+        user_login = self.login_entries["username entry"].get()
+        pass_login = self.login_entries["password entry"].get()
+        try:
+            for username, password in self.user_dict.items():
+                if user_login == username:
+                    if pass_login == password:
+                        self.controller.show_frame("MenuFrame")
+        except:
+            print("You have entered a wrong username/password! Try again!\n")
+
+
+class MenuFrame(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+
+        hello_label = tk.Label(self, text='Hello! Select an item below.')
+
+        self.menu_buttons = {
+            "admin button": tk.Button(self, text="Admin"),
+            "POS button": tk.Button(self, text="POS"),
+            "logout button": tk.Button(self, text="Logout")
         }
 
-        self.listboxes = {
-            'user_list_box': tk.Listbox(self.frame),
-            'cart_items_box': tk.Listbox(self.frame)
+        hello_label.grid(row=1, column=0, columnspan=3)
+        self.menu_buttons["admin button"].grid(row=2, column=0)
+        self.menu_buttons["POS button"].grid(row=2, column=1)
+        self.menu_buttons["logout button"].grid(row=2, column=2)
+
+    # def admin_push(self):
+    #     self.controller.create_admin_frame()
+    #     # ContainerFrame.create_admin_frame(ContainerFrame.parent)
+    #     self.controller.show_frame("AdminFrame")
+
+    def POS_push(self):
+        pass
+
+    def logout_push(self):
+        pass
+
+
+class AdminFrame(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+
+        admin_label = tk.Label(self, text="Admin Screen")
+
+        self.admin_buttons = {
+            "user list": tk.Button(self, text="User List"),
+            "add user": tk.Button(self, text="Add User"),
+            "change password": tk.Button(self, text="Change Password"),
+            "return": tk.Button(self, text="Return")
         }
 
-        self.welcome_frame()
+        admin_label.grid(row=1, column=1, columnspan=2)
+        self.admin_buttons["user list"].grid(row=2, column=0, columnspan=1)
+        self.admin_buttons["add user"].grid(row=2, column=1, columnspan=1)
+        self.admin_buttons["change password"].grid(row=2, column=2, columnspan=1)
+        self.admin_buttons["return"].grid(row=2, column=3, columnspan=1)
 
-    def welcome_frame(self):
-        self.labels['program_name_label'].grid(row=0, column=0)
-        self.labels['welcome_label'].grid(row=1, column=0)
-        self.buttons['start_button'].grid(row=2, column=0)
+    def user_list_push(self):
+        pass
 
-    def welcome_button_push(self):
-        self.labels['program_name_label'].grid_forget()
-        self.labels['welcome_label'].grid_forget()
-        self.buttons['start_button'].grid_forget()
-        self.labels['username_label'].grid(row=0, column=0)
-        self.labels['password_label'].grid(row=1, column=0)
+    def add_user_push(self):
+        pass
+
+    def change_password_push(self):
+        pass
+
+    def return_push(self):
+        pass
 
 
 def main():
-    root = tk.Tk()
-    POS_gui = POSGui(root)
+    user_lst_directory()
+    root = ContainerFrame()
     root.mainloop()
 
 
