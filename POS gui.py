@@ -9,26 +9,24 @@ def user_lst_directory():
         file = open("user_list.txt", "w")
         file.write("username:password,")
         file.close()
-    else:
-        print("File exists.")
 
 
 class ContainerFrame(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
 
-        container = tk.Frame(self)
+        self.container = tk.Frame(self)
         self.title("Point-of-Sales Demo v2.01")
-        container.pack(side="top", fill="both", expand=True)
-        container.grid_rowconfigure(0, weight=1)
-        container.grid_columnconfigure(0, weight=1)
+        self.container.pack(side="top", fill="both", expand=True)
+        self.container.grid_rowconfigure(0, weight=1)
+        self.container.grid_columnconfigure(0, weight=1)
 
-        frame_list = [StartFrame, LoginFrame, MenuFrame]
+        self.frame_list = [StartFrame, LoginFrame, MenuFrame]
         self.frames = {}
 
-        for F in frame_list:
+        for F in self.frame_list:
             page_name = F.__name__
-            frame = F(parent=container, controller=self)
+            frame = F(parent=self.container, controller=self)
             self.frames[page_name] = frame
             frame.grid(row=0, column=0, sticky="nsew")
 
@@ -40,9 +38,9 @@ class ContainerFrame(tk.Tk):
             frame = self.frames[page_name]
             frame.grid()
 
-    # def create_admin_frame(self):
-    #     self.frames["AdminFrame"] = AdminFrame(parent=self.container, controller=self)
-    #     self.frames["AdminFrame"].grid(row=0, column=0, sticky="nsew")
+    def create_frame(self, frame_name):
+        self.frames[frame_name] = frame_name(parent=self.container, controller=self)
+        self.frames[frame_name].grid(row=0, column=0, sticky="nsew")
 
 
 class StartFrame(tk.Frame):
@@ -79,7 +77,7 @@ class LoginFrame(tk.Frame):
             "login label": tk.Label(self, text="Login"),
             "username label": tk.Label(self, text="Username:"),
             "password label": tk.Label(self, text="Password:"),
-            'wrong_user/pass_label': tk.Label(self, text='You have entered a wrong username/password. Try again')
+            'wrong entry label': tk.Label(self, text='You have entered a wrong username/password. Try again')
         }
 
         self.login_entries = {
@@ -99,13 +97,20 @@ class LoginFrame(tk.Frame):
     def login_push(self):
         user_login = self.login_entries["username entry"].get()
         pass_login = self.login_entries["password entry"].get()
-        try:
-            for username, password in self.user_dict.items():
-                if user_login == username:
-                    if pass_login == password:
-                        self.controller.show_frame("MenuFrame")
-        except:
-            print("You have entered a wrong username/password! Try again!\n")
+        for username, password in self.user_dict.items():
+            if user_login == username:
+                if pass_login == password:
+                    self.controller.show_frame("MenuFrame")
+                    self.login_entries["username entry"].delete(0, tk.END)
+                    self.login_entries["password entry"].delete(0, tk.END)
+                    if self.login_labels["wrong entry label"]:
+                        self.login_labels["wrong entry label"].destroy()
+                else:
+                    self.login_labels["wrong entry label"].grid(row=5, column=0, columnspan=3)
+                    print("You have entered a wrong username/password! Try again!\n")
+            else:
+                self.login_labels["wrong entry label"].grid(row=5, column=0, columnspan=3)
+                print("You have entered a wrong username/password! Try again!\n")
 
 
 class MenuFrame(tk.Frame):
@@ -116,9 +121,9 @@ class MenuFrame(tk.Frame):
         hello_label = tk.Label(self, text='Hello! Select an item below.')
 
         self.menu_buttons = {
-            "admin button": tk.Button(self, text="Admin"),
+            "admin button": tk.Button(self, text="Admin", command=self.admin_push),
             "POS button": tk.Button(self, text="POS"),
-            "logout button": tk.Button(self, text="Logout")
+            "logout button": tk.Button(self, text="Logout", command=self.logout_push)
         }
 
         hello_label.grid(row=1, column=0, columnspan=3)
@@ -126,16 +131,15 @@ class MenuFrame(tk.Frame):
         self.menu_buttons["POS button"].grid(row=2, column=1)
         self.menu_buttons["logout button"].grid(row=2, column=2)
 
-    # def admin_push(self):
-    #     self.controller.create_admin_frame()
-    #     # ContainerFrame.create_admin_frame(ContainerFrame.parent)
-    #     self.controller.show_frame("AdminFrame")
+    def admin_push(self):
+        self.controller.create_frame(AdminFrame)
+        self.controller.show_frame(AdminFrame)
 
     def POS_push(self):
         pass
 
     def logout_push(self):
-        pass
+        self.controller.show_frame("LoginFrame")
 
 
 class AdminFrame(tk.Frame):
@@ -149,7 +153,7 @@ class AdminFrame(tk.Frame):
             "user list": tk.Button(self, text="User List"),
             "add user": tk.Button(self, text="Add User"),
             "change password": tk.Button(self, text="Change Password"),
-            "return": tk.Button(self, text="Return")
+            "return": tk.Button(self, text="Return", command=self.return_push)
         }
 
         admin_label.grid(row=1, column=1, columnspan=2)
@@ -168,7 +172,8 @@ class AdminFrame(tk.Frame):
         pass
 
     def return_push(self):
-        pass
+        self.controller.show_frame("MenuFrame")
+        self.destroy()
 
 
 def main():
