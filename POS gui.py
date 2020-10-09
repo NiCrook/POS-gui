@@ -2,17 +2,22 @@ import tkinter as tk
 from tkinter import IntVar, StringVar
 import os
 
+# assign each line in user_list.txt to user_dict as a user profile
 user_list = open("user_list.txt", "r")
 users = user_list.readlines()
 user_dict = {}
+# seperates each username and password into a variable and then pushes each as a key/value into user_dict
 for line in users:
     delimer = str(":")
     delimer_index = line.find(delimer)
     username = line[0:delimer_index]
     password = line[(delimer_index + 1):-2]
     user_dict[username] = password
+user_list.close()
 
 
+# function to check if user_list.txt exists
+# creates file if not
 def user_lst_directory():
     if not os.path.exists("user_list.txt"):
         print("file does not exist.\nCreating new file...")
@@ -21,6 +26,8 @@ def user_lst_directory():
         file.close()
 
 
+# function to check if admin user profile is the first line in user_list.txt
+# creates profile if not
 def user_admin_check():
     admin = "username:password,"
     with open("user_list.txt", "r") as file_read:
@@ -35,10 +42,13 @@ def user_admin_check():
             # file_write.close()
 
 
+# create the underlying container frame which holds StartFrames, LoginFrame, and MenuFrame
 class ContainerFrame(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
 
+        # assigns container variable as a frame
+        # give container frame dimensions
         self.container = tk.Frame(self)
         self.title("Point-of-Sales Demo v2.01")
         self.container.pack(side="top", fill="both", expand=True)
@@ -48,6 +58,8 @@ class ContainerFrame(tk.Tk):
         self.frame_list = [StartFrame, LoginFrame, MenuFrame]
         self.frames = {}
 
+        # loop that assigns each item in frame_list to a frame
+        # place each frame into container frame, on top of each other
         for F in self.frame_list:
             page_name = F.__name__
             frame = F(parent=self.container, controller=self)
@@ -56,6 +68,8 @@ class ContainerFrame(tk.Tk):
 
         self.show_frame("StartFrame")
 
+    # method that removes grid placement for frames not shown
+    # reduces size of frames not shown, giving shown frame proper size
     def show_frame(self, page_name):
         for frame in self.frames.values():
             frame.grid_remove()
@@ -72,9 +86,11 @@ class StartFrame(tk.Frame):
         tk.Frame.__init__(self, parent)
         self.controller = controller
 
+        # WIDGETS
         app_name_label = tk.Label(self, text="Cash Register System v2.01")
         start_button = tk.Button(self, text="Start", command=self.start_button_push)
 
+        # LAYOUT
         app_name_label.grid(row=1, column=0, columnspan=3)
         start_button.grid(row=2, column=1)
 
@@ -87,6 +103,7 @@ class LoginFrame(tk.Frame):
         tk.Frame.__init__(self, parent)
         self.controller = controller
 
+        # WIDGETS
         self.login_labels = {
             "login label": tk.Label(self, text="Login"),
             "username label": tk.Label(self, text="Username:"),
@@ -101,6 +118,7 @@ class LoginFrame(tk.Frame):
 
         login_button = tk.Button(self, text="Login", command=self.login_push)
 
+        # LAYOUT
         self.login_labels["login label"].grid(row=1, column=0)
         self.login_labels["username label"].grid(row=2, column=0)
         self.login_entries["username entry"].grid(row=2, column=1)
@@ -108,6 +126,10 @@ class LoginFrame(tk.Frame):
         self.login_entries["password entry"].grid(row=3, column=1)
         login_button.grid(row=4, column=1)
 
+    # method which grabs each entry field contents
+    # checks contents against items in user_dict
+    # if any match, shows next frame while destroying loginframe
+    # if none match, shows message giving unmatch error, prompts the user to try again
     def login_push(self):
         user_login = self.login_entries["username entry"].get()
         pass_login = self.login_entries["password entry"].get()
@@ -118,7 +140,7 @@ class LoginFrame(tk.Frame):
                     self.login_entries["username entry"].delete(0, tk.END)
                     self.login_entries["password entry"].delete(0, tk.END)
                     if self.login_labels["wrong entry label"]:
-                        self.login_labels["wrong entry label"].destroy()
+                        self.login_labels["wrong entry label"].grid_remove()
                 else:
                     self.login_labels["wrong entry label"].grid(row=5, column=0, columnspan=3)
                     print("You have entered a wrong username/password! Try again!\n")
