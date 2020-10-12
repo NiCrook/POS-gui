@@ -1,46 +1,60 @@
 import tkinter as tk
 from tkinter import IntVar, StringVar
-import os
+import mysql.connector as mysql
 
-# assign each line in user_list.txt to user_dict as a user profile
-user_list = open("user_list.txt", "r")
-users = user_list.readlines()
-user_dict = {}
-# seperates each username and password into a variable and then pushes each as a key/value into user_dict
-for line in users:
-    delimer = str(":")
-    delimer_index = line.find(delimer)
-    username = line[0:delimer_index]
-    password = line[(delimer_index + 1):-2]
-    user_dict[username] = password
-user_list.close()
+### SQL Database Handling ###
 
+# establish sql connection
+sql_db = mysql.connect(
+    host="localhost",
+    user="root",
+    password="LoTTaB0llyw00d",
+    database="mydatabase"
+)
 
-# function to check if user_list.txt exists
-# creates file if not
-def user_lst_directory():
-    if not os.path.exists("user_list.txt"):
-        print("file does not exist.\nCreating new file...")
-        file = open("user_list.txt", "w")
-        file.write("username:password,\n")
-        file.close()
+# assign sql cursor to variable for convenience
+cursor = sql_db.cursor(buffered=True)
 
+# create SQL Table named 'users'
+# if it exists, print message handling error
+try:
+    cursor.execute("CREATE TABLE users (username VARCHAR(225), password VARCHAR(225))")
+    print("User table does not exist.\nCreating user table now...\n")
+except Exception as e:
+    print("Exception occurred:{}".format(e))
 
-# function to check if admin user profile is the first line in user_list.txt
-# creates profile if not
-def user_admin_check():
-    admin = "username:password,"
-    with open("user_list.txt", "r") as file_read:
-        first_line = file_read.readline().strip("\n")
-    if first_line == admin:
-        print("Admin profile exists.\nRunning program...")
+# assign variables for creating and checking admin profile in users table
+insert_user = "INSERT INTO users (username, password) VALUES (%s, %s)"
+admin = ("username", "password")
+admin_check_sql = "SELECT * FROM users WHERE username='username' AND password='password'"
+
+# checks to see if Table 'users' has any rows
+# if zero rows, then admin profile can't exist
+# creates admin profile if zero rows
+try:
+    cursor.execute(admin_check_sql)
+    admin_result = cursor.fetchall()
+    row_count = cursor.rowcount
+    print("number of counted rows: {}".format(row_count))
+    if row_count == 0:
+        print("Admin profile does not exist.\nCreating admin profile now...\n")
+        cursor.execute(insert_user, admin)
+        sql_db.commit()  # commits changes to the table
+        cursor.execute(admin_check_sql)
+        second_result = cursor.fetchall()
+        second_count = cursor.rowcount
+        if second_count == 0:
+            print("You're still doing it wrong.")
+        else:
+            for row in second_result:
+                print(row)
+            print("Yay! You did it!")
     else:
-        print("Admin profile does not exist.\nCreating admin profile...")
-        with open("user_list.txt", "w") as file_write:
-            file_write.write("username:password,\n")
-            # file_read.close()
-            # file_write.close()
+        print("Admin profile exists.\n")
+except Exception as e:
+    print("Something went wrong:{}".format(e))
 
+### FRAMES ###
 
 # create the underlying container frame which holds StartFrames, LoginFrame, and MenuFrame
 class ContainerFrame(tk.Tk):
@@ -131,22 +145,22 @@ class LoginFrame(tk.Frame):
     # if any match, shows next frame while destroying loginframe
     # if none match, shows message giving unmatch error, prompts the user to try again
     def login_push(self):
+        empty_list = []
         user_login = self.login_entries["username entry"].get()
         pass_login = self.login_entries["password entry"].get()
-        for username, password in user_dict.items():
-            if user_login == username:
-                if pass_login == password:
-                    self.controller.show_frame("MenuFrame")
-                    self.login_entries["username entry"].delete(0, tk.END)
-                    self.login_entries["password entry"].delete(0, tk.END)
-                    if self.login_labels["wrong entry label"]:
-                        self.login_labels["wrong entry label"].grid_remove()
-                else:
-                    self.login_labels["wrong entry label"].grid(row=5, column=0, columnspan=3)
-                    print("You have entered a wrong username/password! Try again!\n")
-            else:
-                self.login_labels["wrong entry label"].grid(row=5, column=0, columnspan=3)
-                print("You have entered a wrong username/password! Try again!\n")
+        login_info = (user_login, pass_login)
+        print(login_info)
+        user_check_sql = "SELECT * FROM users WHERE username=%s AND password=%s"
+        cursor.execute(user_check_sql, login_info)
+        if cursor.fetchall() == empty_list:
+            self.login_labels["wrong entry label"].grid(row=5, column=0, columnspan=3)
+        else:
+            self.controller.show_frame("MenuFrame")
+            self.login_entries["username entry"].delete(0, tk.END)
+            self.login_entries["password entry"].delete(0, tk.END)
+            if self.login_labels["wrong entry label"]:
+                self.login_labels["wrong entry label"].grid_remove()
+        cursor.execute(user_check_sql, login_info)
 
 
 class MenuFrame(tk.Frame):
@@ -243,15 +257,16 @@ class UserListFrame(tk.Frame):
         tk.Frame.__init__(self, parent)
         self.controller = controller
 
-        user_list = []
-        for username, password in user_dict.items():
-            user = str(username) + ":" + str(password)
-            user_list.append(user)
+        user_list_sql = "SELECT * FROM users"
+        cursor.execute(user_list_sql)
+        user_list_dict = {}
+        for user in cursor:
+            user_list_dict[user[0]] = user[1]
 
         user_list_label = tk.Label(self, text="User List")
 
         self.user_list_box = tk.Listbox(self)
-        for user in user_list:
+        for user in user_list_dict.keys():
             self.user_list_box.insert(tk.END, user)
 
         user_list_buttons = {
@@ -265,16 +280,11 @@ class UserListFrame(tk.Frame):
         user_list_buttons["return"].grid(row=3, column=1)
 
     def remove_user(self):
-        removed_user = str(self.user_list_box.get(tk.ANCHOR)) + ",\n"
-        print(removed_user)
-        with open("user_list.txt", "r") as file:
-            lines = file.readlines()
-            print(lines)
-        with open("user_list.txt", "w") as file:
-            for line in lines:
-                print(line)
-                if line != removed_user:
-                    file.write(line)
+        user_delete_sql = "DELETE FROM users WHERE username=%s"
+        removed_user = str(self.user_list_box.get(tk.ANCHOR))
+
+        cursor.execute(user_delete_sql, (removed_user,))
+        sql_db.commit()
         self.user_list_box.delete(tk.ANCHOR)
 
     def frame_return(self):
@@ -284,10 +294,11 @@ class UserListFrame(tk.Frame):
 
 #     CURRENCY_LIST = ['$100', '$50', '$20', '$10', '$5', '$1', '$0.25', '$0.10', '$0.05', '$0.01']
 
+### MAIN OPERATION ###
 
 def main():
-    user_lst_directory()
-    user_admin_check()
+    # user_lst_directory()
+    # user_admin_check()
     root = ContainerFrame()
     root.mainloop()
 
