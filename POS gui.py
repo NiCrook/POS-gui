@@ -333,9 +333,15 @@ class AddUserFrame(tk.Frame):
             "old password": tk.Entry(self, show="*")
         }
 
+        # entry content gets for buttons
+        username_get = self.add_user_entries["username"].get()
+        new_password = self.add_user_entries["password"].get()
+        new_second_password = self.add_user_entries["re-enter password"].get()
+        old_password = self.add_user_entries["old password"].get()
+
         add_user_buttons = {
-            "create user": tk.Button(self, text="Create User", command=self.create_user),
-            "change password": tk.Button(self, text="Change Password", command=self.change_password),
+            "create user": tk.Button(self, text="Create User", command=self.create_user(username_get, new_password, new_second_password)),
+            "change password": tk.Button(self, text="Change Password", command=self.change_password(username_get, new_password, new_second_password, old_password)),
             "return": tk.Button(self, text="Return", command=self.return_frame)
         }
 
@@ -356,59 +362,52 @@ class AddUserFrame(tk.Frame):
         add_user_buttons["return"].grid(row=5, column=2, columnspan=1)
 
     #   METHODS
-    def create_user(self):
+    def create_user(self, username, first_pass, second_pass):
         # forget any previous labels warning of errors or changes
         self.add_user_labels["wrong match"].grid_forget()
         self.add_user_labels["username already exists"].grid_forget()
         self.add_user_labels["user added"].grid_forget()
 
-        # assign entry contents and SQL
-        create_username = self.add_user_entries["username"].get()
-        create_first_pass = self.add_user_entries["password"].get()
-        create_second_pass = self.add_user_entries["re-enter password"].get()
+        # assign SQL
         username_sql = "SELECT username FROM users WHERE username=%s"
         insert_user_sql = "INSERT INTO users (username, password) VALUES (%s, %s)"
 
         # grabbing contents from SQL database
-        cursor.execute(username_sql, (create_username,))
+        cursor.execute(username_sql, (username,))
 
         # check if passwords match
         # then check if username already exists in SQL database
         # if both are clear, creates user profile in SQL database
-        if create_first_pass != create_second_pass:
+        if first_pass != second_pass:
             self.add_user_labels["wrong match"].grid(row=6, column=0, columnspan=3)
         elif cursor.rowcount != 0:
             self.add_user_labels["username already exists"].grid(row=6, column=0, columnspan=3)
         elif cursor.rowcount == 0:
             try:
-                cursor.execute(insert_user_sql, (create_username, create_first_pass))
+                cursor.execute(insert_user_sql, (username, first_pass))
                 sql_db.commit()
             except Exception:
                 print("Something went wrong!")
             self.add_user_labels["user added"].grid(row=6, column=0, columnspan=3)
 
-    def change_password(self):
+    def change_password(self, username, first_pass, second_pass, old_pass):
         self.add_user_labels["wrong match"].grid_forget()
         self.add_user_labels["username already exists"].grid_forget()
         self.add_user_labels["user added"].grid_forget()
 
-        username_get = self.add_user_entries["username"].get()
-        new_password = self.add_user_entries["password"].get()
-        new_second_password = self.add_user_entries["re-enter password"].get()
-        old_password = self.add_user_entries["old password"].get()
         old_password_sql = "SELECT password FROM users WHERE username=%s"
         change_password_sql = "UPDATE users SET password=%s WHERE username=%s"
 
-        cursor.execute(old_password_sql, (username_get,))
+        cursor.execute(old_password_sql, (username,))
         list_result = cursor.fetchall()[0]
         tuple_result = list_result[0]
-        if new_password != new_second_password:
+        if first_pass != second_pass:
             self.add_user_labels["wrong match"].grid(row=6, column=0, columnspan=3)
-        if old_password != tuple_result:
+        if old_pass != tuple_result:
             self.add_user_labels["wrong match"].grid(row=6, column=0, columnspan=3)
         else:
             self.add_user_labels["password changed"].grid(row=6, column=0, columnspan=3)
-            cursor.execute(change_password_sql, (new_password, username_get))
+            cursor.execute(change_password_sql, (first_pass, username))
             sql_db.commit()
 
     def return_frame(self):
