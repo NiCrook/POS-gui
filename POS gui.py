@@ -1,61 +1,118 @@
 import tkinter as tk
 from tkinter import IntVar, StringVar
 import mysql.connector as mysql
+from mysql.connector import errorcode
 
 ### SQL Database Handling ###
 
-# establish sql connection
 sql_db = mysql.connect(
     host="localhost",
     user="root",
-    password="password",
-    database="mydatabase"
+    password="LoTTaB0llyw00d"
 )
 
-# assign sql cursor to variable for convenience
+#   ESTABLISH CURSOR
 cursor = sql_db.cursor(buffered=True)
 
-# create SQL Table named 'users'
-# if it exists, print message handling error
+TABLES_USERS = {}
+TABLES_SALES = {}
+
+#   DEFINE EACH DESIGNATED TABLE
+TABLES_USERS['user profiles'] = (
+    "CREATE TABLE `user profiles` ("
+    "   `username` varchar(16),"
+    "   `password` varchar(16)"
+    ")  ENGINE=InnoDB")
+
+TABLES_SALES['sales log'] = (
+    "CREATE TABLE `sales log` ("
+    "   `sale ID` int(11) NOT NULL AUTO_INCREMENT,"
+    "   `sale date` date NOT NULL,"
+    "   `item log` varchar(225),"
+    "   `item number` int(3) NOT NULL,"
+    "   `sale value` int(8) NOT NULL,"
+    "   PRIMARY KEY (`sale ID`), KEY `sale_id` (`sale ID`)"
+    ")  ENGINE=InnoDB")
+
+DB_LIST = ['users', 'sales']
+TABLE_LIST = [TABLES_USERS, TABLES_SALES]
+
+DB_TABLE_DICT = {}
+
+#   PAIR EACH DATABASE WITH ITS DESIGNATED LIST OF TABLES
+for k, db in enumerate(DB_LIST):
+    DB_TABLE_DICT[db] = TABLE_LIST[int(k)]
+
+
+def create_database(cursor, db_name):
+    try:
+        cursor.execute("CREATE DATABASE {} DEFAULT CHARACTER SET 'utf8'".format(db_name))
+    except mysql.Error as err:
+        print("Failed to create database: {}.\n".format(err))
+        exit(1)
+
+
+#   CREATE DATABASES
+for db in DB_LIST:
+    try:
+        cursor.execute("USE {}".format(db))
+        print("DB: {} exists.".format(db))
+    except mysql.Error as err:
+        print("Database {} does not exist.".format(db))
+        if err.errno == errorcode.ER_BAD_DB_ERROR:
+            create_database(cursor, db)
+            print("Database {} created.".format(db))
+        else:
+            print(err)
+            exit(1)
+
+
+#   CREATE TABLES FOR EACH DATABASE
+for db, table in DB_TABLE_DICT.items():
+    cursor.execute("USE {}".format(db))
+    for table_name in table:
+        table_data = table[table_name]
+        try:
+            print("Creating table: {}.".format(table_name), end='')
+            cursor.execute(table_data)
+        except mysql.Error as err:
+            if err.errno == errorcode.ER_TABLE_EXISTS_ERROR:
+                print("\nTable {} already exists.".format(table_name))
+            else:
+                print(err.msg)
+        else:
+            print("\nOkay!")
+
+
+#   CHECK FOR ADMIN PROFILE, CREATE IF DOESN'T EXIST
+INSERT_USER = "INSERT INTO `user profiles` (username, password) VALUES (%s, %s)"
+ADMIN = ("username", "password")
+ADMIN_CHECK_SQL = "SELECT * FROM `user profiles` WHERE username='username' AND password='password'"
+
 try:
-    cursor.execute("CREATE TABLE users (username VARCHAR(225), password VARCHAR(225))")
-    print("User table does not exist.\nCreating user table now...\n")
-except Exception as e:
-    print("Exception occurred:{}".format(e))
+    cursor.execute("USE users")
+    print("Using database: 'users'")
 
-# assign variables for creating and checking admin profile in users table
-insert_user = "INSERT INTO users (username, password) VALUES (%s, %s)"
-admin = ("username", "password")
-admin_check_sql = "SELECT * FROM users WHERE username='username' AND password='password'"
-
-# checks to see if Table 'users' has any rows
-# if zero rows, then admin profile can't exist
-# creates admin profile if zero rows
-try:
-    cursor.execute(admin_check_sql)
-
+    cursor.execute(ADMIN_CHECK_SQL)
     admin_result = cursor.fetchall()
     row_count = cursor.rowcount
     if row_count == 0:
         print("Admin profile does not exist.\nCreating admin profile now...\n")
-        cursor.execute(insert_user, admin)
+        cursor.execute(INSERT_USER, ADMIN)
         sql_db.commit()
     else:
         print("Admin profile exists.\n")
 except Exception as e:
-    print("Something went wrong:{}".format(e))
+    print("Something went wrong: {}".format(e))
 
 
 ### FRAMES ###
 
 # CONTAINER FRAME
-# create the underlying container frame which holds StartFrames, LoginFrame, and MenuFrame
 class ContainerFrame(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
 
-        # assigns container variable as a frame
-        # give container frame dimensions
         self.container = tk.Frame(self)
         self.title("Point-of-Sales Demo v2.01")
         self.container.pack(side="top", fill="both", expand=True)
@@ -65,8 +122,6 @@ class ContainerFrame(tk.Tk):
         self.frame_list = [StartFrame, LoginFrame, MenuFrame]
         self.frames = {}
 
-        # loop that assigns each item in frame_list to a frame
-        # place each frame into container frame, on top of each other
         for F in self.frame_list:
             page_name = F.__name__
             frame = F(parent=self.container, controller=self)
@@ -75,8 +130,6 @@ class ContainerFrame(tk.Tk):
 
         self.show_frame("StartFrame")
 
-    # method that removes grid placement for frames not shown
-    # reduces size of frames not shown, giving shown frame proper size
     def show_frame(self, page_name):
         for frame in self.frames.values():
             frame.grid_remove()
@@ -143,8 +196,9 @@ class LoginFrame(tk.Frame):
         user_login = self.login_entries["username entry"].get()
         pass_login = self.login_entries["password entry"].get()
         login_info = (user_login, pass_login)
-        user_check_sql = "SELECT * FROM users WHERE username=%s AND password=%s"
+        user_check_sql = "SELECT * FROM `user profiles` WHERE username=%s AND password=%s"
 
+        cursor.execute("USE `users`")
         cursor.execute(user_check_sql, login_info)
         if cursor.fetchall() == empty_list:
             self.login_labels["wrong entry label"].grid(row=5, column=0, columnspan=3)
@@ -204,7 +258,7 @@ class AdminFrame(tk.Frame):
         self.admin_buttons = {
             "user list": tk.Button(self, text="User List", command=self.user_list_push),
             "add user": tk.Button(self, text="Add User", command=self.add_user_push),
-            "change password": tk.Button(self, text="Change Password"),
+            "change password": tk.Button(self, text="Change Password", command=self.change_password_push),
             "return": tk.Button(self, text="Return", command=self.return_push)
         }
 
@@ -226,7 +280,8 @@ class AdminFrame(tk.Frame):
         self.controller.show_frame(AddUserFrame)
 
     def change_password_push(self):
-        pass
+        self.controller.create_frame(ChangePasswordFrame)
+        self.controller.show_frame(ChangePasswordFrame)
 
     def return_push(self):
         self.controller.show_frame("MenuFrame")
@@ -269,7 +324,9 @@ class UserListFrame(tk.Frame):
         self.controller = controller
 
         #   VARIABLES
-        user_list_sql = "SELECT * FROM users"
+        cursor.execute("USE `users`")
+        print("Using 'users'.")
+        user_list_sql = "SELECT * FROM `user profiles`"
         cursor.execute(user_list_sql)
         user_list_dict = {}
         for user in cursor:
@@ -295,7 +352,7 @@ class UserListFrame(tk.Frame):
 
     #   METHODS
     def remove_user(self):
-        user_delete_sql = "DELETE FROM users WHERE username=%s"
+        user_delete_sql = "DELETE FROM `user profiles` WHERE username=%s"
         removed_user = str(self.user_list_box.get(tk.ANCHOR))
 
         cursor.execute(user_delete_sql, (removed_user,))
@@ -323,7 +380,8 @@ class AddUserFrame(tk.Frame):
             "user added": tk.Label(self, text="User added!"),
             "password changed": tk.Label(self, text="Password changed!"),
             "wrong match": tk.Label(self, text="Sorry, but you have entered an incorrect match... Try again."),
-            "username already exists": tk.Label(self, text="Sorry, but the username you have chosen already exists. Try again")
+            "username already exists": tk.Label(self,
+                                                text="Sorry, but the username you have chosen already exists. Try again")
         }
 
         self.add_user_entries = {
@@ -333,15 +391,9 @@ class AddUserFrame(tk.Frame):
             "old password": tk.Entry(self, show="*")
         }
 
-        # entry content gets for buttons
-        username_get = self.add_user_entries["username"].get()
-        new_password = self.add_user_entries["password"].get()
-        new_second_password = self.add_user_entries["re-enter password"].get()
-        old_password = self.add_user_entries["old password"].get()
-
         add_user_buttons = {
-            "create user": tk.Button(self, text="Create User", command=self.create_user(username_get, new_password, new_second_password)),
-            "change password": tk.Button(self, text="Change Password", command=self.change_password(username_get, new_password, new_second_password, old_password)),
+            "create user": tk.Button(self, text="Create User",
+                                     command=self.create_user),
             "return": tk.Button(self, text="Return", command=self.return_frame)
         }
 
@@ -350,64 +402,116 @@ class AddUserFrame(tk.Frame):
         self.add_user_labels["username"].grid(row=1, column=0, columnspan=1)
         self.add_user_labels["password"].grid(row=2, column=0, columnspan=1)
         self.add_user_labels["re password"].grid(row=3, column=0, columnspan=1)
-        self.add_user_labels["old password"].grid(row=4, column=0, columnspan=1)
 
         self.add_user_entries["username"].grid(row=1, column=1, columnspan=2)
         self.add_user_entries["password"].grid(row=2, column=1, columnspan=2)
         self.add_user_entries["re-enter password"].grid(row=3, column=1, columnspan=2)
-        self.add_user_entries["old password"].grid(row=4, column=1, columnspan=2)
 
         add_user_buttons["create user"].grid(row=5, column=0, columnspan=1)
-        add_user_buttons["change password"].grid(row=5, column=1, columnspan=1)
         add_user_buttons["return"].grid(row=5, column=2, columnspan=1)
 
     #   METHODS
-    def create_user(self, username, first_pass, second_pass):
-        # forget any previous labels warning of errors or changes
+    def create_user(self):
         self.add_user_labels["wrong match"].grid_forget()
         self.add_user_labels["username already exists"].grid_forget()
         self.add_user_labels["user added"].grid_forget()
 
-        # assign SQL
-        username_sql = "SELECT username FROM users WHERE username=%s"
-        insert_user_sql = "INSERT INTO users (username, password) VALUES (%s, %s)"
+        username_get = self.add_user_entries["username"].get()
+        new_password = self.add_user_entries["password"].get()
+        new_second_password = self.add_user_entries["re-enter password"].get()
 
-        # grabbing contents from SQL database
-        cursor.execute(username_sql, (username,))
+        username_sql = "SELECT username FROM `user profiles` WHERE username=%s"
+        insert_user_sql = "INSERT INTO `user profiles` (username, password) VALUES (%s, %s)"
 
-        # check if passwords match
-        # then check if username already exists in SQL database
-        # if both are clear, creates user profile in SQL database
-        if first_pass != second_pass:
+        cursor.execute("USE `users`")
+        print("Using 'users'.")
+        cursor.execute(username_sql, (username_get,))
+
+        if new_password != new_second_password:
             self.add_user_labels["wrong match"].grid(row=6, column=0, columnspan=3)
         elif cursor.rowcount != 0:
             self.add_user_labels["username already exists"].grid(row=6, column=0, columnspan=3)
         elif cursor.rowcount == 0:
             try:
-                cursor.execute(insert_user_sql, (username, first_pass))
+                cursor.execute(insert_user_sql, (username_get, new_password))
                 sql_db.commit()
             except Exception:
                 print("Something went wrong!")
             self.add_user_labels["user added"].grid(row=6, column=0, columnspan=3)
 
-    def change_password(self, username, first_pass, second_pass, old_pass):
-        self.add_user_labels["wrong match"].grid_forget()
-        self.add_user_labels["username already exists"].grid_forget()
-        self.add_user_labels["user added"].grid_forget()
+    def return_frame(self):
+        self.controller.show_frame(AdminFrame)
 
-        old_password_sql = "SELECT password FROM users WHERE username=%s"
-        change_password_sql = "UPDATE users SET password=%s WHERE username=%s"
 
-        cursor.execute(old_password_sql, (username,))
+class ChangePasswordFrame(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+
+        #   WIDGETS
+        self.change_password_labels = {
+            "change password": tk.Label(self, text="Change Password"),
+            "username": tk.Label(self, text="username:"),
+            "old password": tk.Label(self, text="old password:"),
+            "new password": tk.Label(self, text="new password:"),
+            "new password two": tk.Label(self, text="re-enter new password"),
+            "password changed": tk.Label(self, text="Password changed!"),
+            "wrong match": tk.Label(self, text="Sorry, but you have entered an incorrect match... Try again."),
+        }
+
+        self.change_password_entries = {
+            "username": tk.Entry(self),
+            "old password": tk.Entry(self, show="*"),
+            "new password": tk.Entry(self, show="*"),
+            "new password two": tk.Entry(self, show="*")
+        }
+
+        change_password_buttons = {
+            "change password": tk.Button(self, text="change password",
+                                         command=self.change_password),
+            "return": tk.Button(self, text="return", command=self.return_frame)
+        }
+
+        #   LAYOUT
+        self.change_password_labels["change password"].grid(row=0, column=0, columnspan=2)
+        self.change_password_labels["username"].grid(row=1, column=0, columnspan=1)
+        self.change_password_labels["old password"].grid(row=2, column=0, columnspan=1)
+        self.change_password_labels["new password"].grid(row=3, column=0, columnspan=1)
+        self.change_password_labels["new password two"].grid(row=4, column=0, columnspan=1)
+
+        self.change_password_entries["username"].grid(row=1, column=1, columnspan=1)
+        self.change_password_entries["old password"].grid(row=2, column=1, columnspan=1)
+        self.change_password_entries["new password"].grid(row=3, column=1, columnspan=1)
+        self.change_password_entries["new password two"].grid(row=4, column=1, columnspan=1)
+
+        change_password_buttons["change password"].grid(row=5, column=0)
+        change_password_buttons["return"].grid(row=5, column=1)
+
+    def change_password(self):
+        self.change_password_labels["wrong match"].grid_forget()
+        self.change_password_labels["password changed"].grid_forget()
+
+        change_pass_userget = self.change_password_entries["username"].get()
+        change_pass_passget = self.change_password_entries["old password"].get()
+        change_pass_newget = self.change_password_entries["new password"].get()
+        change_pass_secondget = self.change_password_entries["new password two"].get()
+
+        old_password_sql = "SELECT password FROM `user profiles` WHERE username=%s"
+        change_password_sql = "UPDATE `user profiles` SET password=%s WHERE username=%s"
+
+        cursor.execute("USE `users`")
+        print("Using 'users'.")
+        cursor.execute(old_password_sql, (change_pass_userget,))
         list_result = cursor.fetchall()[0]
         tuple_result = list_result[0]
-        if first_pass != second_pass:
-            self.add_user_labels["wrong match"].grid(row=6, column=0, columnspan=3)
-        if old_pass != tuple_result:
-            self.add_user_labels["wrong match"].grid(row=6, column=0, columnspan=3)
+
+        if change_pass_newget != change_pass_secondget:
+            self.change_password_labels["wrong match"].grid(row=6, column=0, columnspan=3)
+        if change_pass_passget != tuple_result:
+            self.change_password_labels["wrong match"].grid(row=6, column=0, columnspan=3)
         else:
-            self.add_user_labels["password changed"].grid(row=6, column=0, columnspan=3)
-            cursor.execute(change_password_sql, (first_pass, username))
+            self.change_password_labels["password changed"].grid(row=6, column=0, columnspan=3)
+            cursor.execute(change_password_sql, (change_pass_newget, change_pass_userget))
             sql_db.commit()
 
     def return_frame(self):
@@ -419,8 +523,6 @@ class AddUserFrame(tk.Frame):
 ### MAIN OPERATION ###
 
 def main():
-    # user_lst_directory()
-    # user_admin_check()
     root = ContainerFrame()
     root.mainloop()
 
