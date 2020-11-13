@@ -66,7 +66,6 @@ for db in DB_LIST:
             print(err)
             exit(1)
 
-
 #   CREATE TABLES FOR EACH DATABASE
 for db, table in DB_TABLE_DICT.items():
     cursor.execute("USE {}".format(db))
@@ -82,7 +81,6 @@ for db, table in DB_TABLE_DICT.items():
                 print(err.msg)
         else:
             print("\nOkay!")
-
 
 #   CHECK FOR ADMIN PROFILE, CREATE IF DOESN'T EXIST
 INSERT_USER = "INSERT INTO `user profiles` (username, password) VALUES (%s, %s)"
@@ -298,12 +296,12 @@ class POSFrame(tk.Frame):
         pos_label = tk.Label(self, text="POS Menu")
 
         pos_buttons = {
-            "start of day": tk.Button(self, text="Start of Day"),
+            "start of day": tk.Button(self, text="Start of Day", command=self.day_start_push),
             "new sale": tk.Button(self, text="New Sale"),
             "daily sales": tk.Button(self, text="Daily Sales"),
             "cash drop": tk.Button(self, text="Add/Drop Cash"),
             "end of day": tk.Button(self, text="End of Day"),
-            "return": tk.Button(self, text="Return")
+            "return": tk.Button(self, text="Return", command=self.return_push)
         }
 
         # LAYOUT
@@ -315,6 +313,13 @@ class POSFrame(tk.Frame):
         pos_buttons["cash drop"].grid(row=2, column=0)
         pos_buttons["end of day"].grid(row=2, column=1)
         pos_buttons["return"].grid(row=2, column=2)
+
+    def day_start_push(self):
+        self.controller.create_frame(DayStartFrame)
+        self.controller.show_frame(DayStartFrame)
+
+    def return_push(self):
+        self.controller.show_frame("MenuFrame")
 
 
 # USER LIST FRAME
@@ -518,11 +523,77 @@ class ChangePasswordFrame(tk.Frame):
         self.controller.show_frame(AdminFrame)
 
 
-#     CURRENCY_LIST = ['$100', '$50', '$20', '$10', '$5', '$1', '$0.25', '$0.10', '$0.05', '$0.01']
+class DayStartFrame(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.controller = controller
+
+        CURRENCY_LIST = ['$100', '$50', '$20', '$10', '$5', '$1', '$0.25', '$0.10', '$0.05', '$0.01']
+
+        REGISTER_OFF_AMOUNT = 0
+        self.OFF_AMOUNT_TYPE = IntVar()
+        self.OFF_AMOUNT_TYPE.set(REGISTER_OFF_AMOUNT)
+
+        #   WIDGETS
+        #   LABELS
+        ds_labels = {
+            "start of day": tk.Label(self, text="Start of Day"),
+            "opening reg count": tk.Label(self, text='Opening Count: '),
+            "opening cur count": tk.Label(self, text='Currency Count: '),
+            "count off": tk.Label(self, text='Your register count if off by: '),
+            "off amount": tk.Label(self, textvariable=self.OFF_AMOUNT_TYPE)
+        }
+
+        for cur in CURRENCY_LIST:
+            ds_labels[cur] = tk.Label(self, text="{}: ".format(cur))
+
+        #   ENTRIES
+        ds_entries = {
+            "opening reg entry": tk.Entry(self),
+        }
+
+        for cur in CURRENCY_LIST:
+            ds_entries[cur] = tk.Entry(self)
+
+        #   BUTTONS
+        ds_buttons = {
+            "check count": tk.Button(self, text='Check Count'),
+            "confirm count": tk.Button(self, text='Confirm Count'),
+            "return": tk.Button(self, text='Return')
+        }
+
+        #   LAYOUT
+        #   LABELS
+        ds_labels["start of day"].grid(row=0, column=0, columnspan=1)
+        ds_labels["opening reg count"].grid(row=1, column=0, sticky=tk.W)
+        ds_labels["opening cur count"].grid(row=2, column=0, sticky=tk.W)
+
+        label_row_place = 3
+        for k, v in list(ds_labels.items())[5:]:
+            ds_labels[k].grid(row=label_row_place, column=0, sticky=tk.E)
+            label_row_place += 1
+
+        ds_labels["count off"].grid(row=14, column=0, columnspan=1, sticky=tk.W)
+        # ds_labels["off amount"].grid(row=14, column=4)
+
+        # ENTRIES
+        ds_entries["opening reg entry"].grid(row=1, column=1)
+        entry_row_place = 3
+        for k, v in list(ds_entries.items())[1:]:
+            ds_entries[k].grid(row=entry_row_place, column=1)
+            entry_row_place += 1
+
+        #   BUTTONS
+        ds_buttons["check count"].grid(row=13, column=0)
+        ds_buttons["confirm count"].grid(row=13, column=1)
+        ds_buttons["return"].grid(row=15, column=0)
+
 
 ### MAIN OPERATION ###
 
 def main():
+    # user_lst_directory()
+    # user_admin_check()
     root = ContainerFrame()
     root.mainloop()
 
