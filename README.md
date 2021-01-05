@@ -2,7 +2,7 @@
  An exercise in creating a point-of-sales demo GUI
  
 # Demo
-placeholder
+![](posguipy.gif)
 
 # Usage
 Copy "POS gui.py" onto your machine and run in your desired virtual environment. 
