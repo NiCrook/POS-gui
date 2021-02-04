@@ -8,7 +8,7 @@ from mysql.connector import errorcode
 sql_db = mysql.connect(
     host="localhost",
     user="root",
-    password="LoTTaB0llyw00d"
+    password="password"
 )
 
 #   ESTABLISH CURSOR
